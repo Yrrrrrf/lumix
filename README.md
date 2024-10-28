@@ -2,6 +2,10 @@
 
 A simple, fast command-line tool for controlling monitor brightness on Windows. Designed for easy brightness management across multiple displays.
 
+[![GitHub](https://img.shields.io/badge/github-Yrrrrrf%2Flumix-58A6FF?style=for-the-badge&logo=github)](https://github.com/Yrrrrrf/lumix)
+[![Crates.io](https://img.shields.io/crates/v/lumix.svg?style=for-the-badge&logo=rust)](https://crates.io/crates/lumix)
+[![License](https://img.shields.io/github/license/Yrrrrrf/dev_utils.svg?style=for-the-badge)](./LICENSE)
+
 ## Features
 
 - 🖥️ Multi-monitor support
@@ -58,12 +62,6 @@ Where:
 - `Monitor X not found`: Invalid monitor handle
 - `Invalid brightness value`: Brightness must be 0-100
 - `Error setting brightness`: Monitor might not support DDC/CI
-
-## Uninstallation
-
-```bash
-cargo uninstall lumix
-```
 
 ## Contributing
 

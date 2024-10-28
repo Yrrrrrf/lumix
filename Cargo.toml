@@ -1,10 +1,12 @@
 [package]
 name = "lumix"  # Lux Mixer (some monitor brightness control)
 # todo: Add some new contol features to this tool like volume control, etc...
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-description = "A simple tool to control monitor data"
+description = "A simple tool to control monitor features like brightness, volume, etc..."
 license = "MIT"
+repository = "https://github.com/Yrrrrrf/lumix"
+keywords = ["brightness", "volume", "control", "monitor", "windows"]
 
 # This is important - it tells cargo this is a binary package
 [[bin]]
