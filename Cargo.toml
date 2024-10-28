@@ -1,0 +1,33 @@
+[package]
+name = "lumix"  # Lux Mixer (some monitor brightness control)
+# todo: Add some new contol features to this tool like volume control, etc...
+version = "0.1.0"
+edition = "2021"
+description = "A simple tool to control monitor data"
+license = "MIT"
+
+# This is important - it tells cargo this is a binary package
+[[bin]]
+name = "lumix"  # cargo run will run this binary
+path = "src/main.rs"  # The entry point of the binary
+
+[dependencies]
+windows = { version = "0.*", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Devices_Display"
+] }
+
+[profile.release]
+opt-level = 3
+strip = true  # Automatically strip symbols from the binary
+lto = true    # Enable Link Time Optimization
+codegen-units = 1  # Optimize for size
+panic = "abort"  # Remove panic unwinding to reduce binary size
+
+[profile.dev]
+opt-level = 0  # Disable optimizations for faster compilation
+panic = "abort"  # Remove panic unwinding to reduce binary size
+
+# [features]
+# default = []
