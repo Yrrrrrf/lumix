@@ -33,19 +33,15 @@ impl MonitorControl {
             Some(h) => {
                 if let Some((_, monitor)) = self.monitors.iter().find(|(handle, _)| *handle == h) {
                     SetMonitorBrightness(monitor.hPhysicalMonitor, brightness);
-                    println!("{}✓{} Set brightness to {}{}%{} for monitor M_{}", 
-                        GREEN, RESET, BOLD, brightness, RESET, h);
+                    println!("{GREEN}✓{RESET} Set brightness to {BOLD}{brightness}%{RESET} for monitor M_{h}");
                     Ok(())
-                } else {
-                    Err(format!("{}✗{} Monitor M_{} not found", RED, RESET, h))
-                }
+                } else {Err(format!("{}✗{} Monitor M_{} not found", RED, RESET, h))}
             }
             None => {
                 // Set brightness for all monitors
                 for (handle, monitor) in &self.monitors {
                     SetMonitorBrightness(monitor.hPhysicalMonitor, brightness);
-                    println!("{}✓{} Set brightness to {}{}%{} for monitor M_{}", 
-                        GREEN, RESET, BOLD, brightness, RESET, handle);
+                    println!("{GREEN}✓{RESET} Set brightness to {BOLD}{brightness}%{RESET} for monitor M_{handle}");
                 }
                 Ok(())
             }
@@ -58,47 +54,22 @@ impl MonitorControl {
             let mut current = 0;
             let mut max = 0;
             GetMonitorBrightness(monitor.hPhysicalMonitor, &mut min, &mut current, &mut max);
-            
             // Create a simple progress bar
             let bar_width = 20;
             let filled = (current as f32 / max as f32 * bar_width as f32) as usize;
-            let bar: String = format!("{}{}{}",
-                "█".repeat(filled),
-                DIM,
-                "░".repeat(bar_width - filled)
-            );
-            
-            println!(
-                "{}Monitor {}{}: {}{:>3}%{} {}[{}..{:>3}]{} {}{}{}",
-                CYAN,
-                handle,
-                RESET,
-                BOLD,
-                current,
-                RESET,
-                DIM,
-                min,
-                max,
-                RESET,
-                BLUE,
-                bar,
-                RESET
-            );
+            let bar: String = format!("{}{}{}", "█".repeat(filled), DIM, "░".repeat(bar_width - filled));
+            println!("{CYAN}Monitor {handle}{RESET}: {BOLD}{current:>3}%{RESET} {DIM}[{min}..{max:>3}]{RESET} {BLUE}{bar}{RESET}");
         };
 
         match handle {
             Some(h) => {
                 if let Some(monitor) = self.monitors.iter().find(|(handle, _)| *handle == h) {
                     print_monitor(monitor);
-                } else {
-                    println!("{}✗{} Monitor {} not found", RED, RESET, h);
-                }
+                } else {println!("{}✗{} Monitor {} not found", RED, RESET, h);}
             }
             None => {
                 println!("\n{}Monitor Brightness Status:{}\n", BOLD, RESET);
-                for monitor in &self.monitors {
-                    print_monitor(monitor);
-                }
+                for monitor in &self.monitors {print_monitor(monitor);}
                 println!(); // Add extra newline for spacing
             }
         }
@@ -122,10 +93,7 @@ fn print_usage() {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() < 2 {
-        print_usage();
-        return;
-    }
+    if args.len() < 2 { print_usage(); return; }
 
     let mut monitor_control = MonitorControl::new();
 
@@ -144,18 +112,10 @@ fn main() {
             BOOL(1)
         }
 
-        _ = Gdi::EnumDisplayMonitors(
-            None,
-            None,
-            Some(handle_monitor),
-            LPARAM(&mut monitor_control as *mut _ as isize),
-        );
+        _ = Gdi::EnumDisplayMonitors(None, None, Some(handle_monitor), LPARAM(&mut monitor_control as *mut _ as isize));
 
         match args[1].as_str() {
-            "get" => {
-                let handle = args.get(2).and_then(|s| s.parse().ok());
-                monitor_control.get_brightness(handle);
-            }
+            "get" => monitor_control.get_brightness(args.get(2).and_then(|s| s.parse().ok())),
             "set" => {
                 match args.len() {
                     3 => {
@@ -163,18 +123,14 @@ fn main() {
                             if let Err(e) = monitor_control.set_brightness(None, brightness) {
                                 println!("{}Error:{} {}", RED, RESET, e);
                             }
-                        } else {
-                            println!("{}Error:{} Invalid brightness value", RED, RESET);
-                        }
+                        } else {println!("{}Error:{} Invalid brightness value", RED, RESET);}
                     }
                     4 => {
                         if let (Ok(handle), Ok(brightness)) = (args[2].parse(), args[3].parse()) {
                             if let Err(e) = monitor_control.set_brightness(Some(handle), brightness) {
                                 println!("{}Error:{} {}", RED, RESET, e);
                             }
-                        } else {
-                            println!("{}Error:{} Invalid handle or brightness value", RED, RESET);
-                        }
+                        } else {println!("{}Error:{} Invalid handle or brightness value", RED, RESET);}
                     }
                     _ => print_usage(),
                 }
