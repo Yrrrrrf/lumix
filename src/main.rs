@@ -1,8 +1,10 @@
-use windows::Win32::Graphics::Gdi;
-use windows::Win32::Foundation::{LPARAM, BOOL, RECT};
-use windows::Win32::Devices::Display::{
-    SetMonitorBrightness, GetPhysicalMonitorsFromHMONITOR,
-    PHYSICAL_MONITOR, GetMonitorBrightness,
+use windows::Win32::{
+    Graphics::Gdi,
+    Foundation::{LPARAM, BOOL, RECT},
+    Devices::Display::{
+        SetMonitorBrightness, GetPhysicalMonitorsFromHMONITOR,
+        PHYSICAL_MONITOR, GetMonitorBrightness,
+    },
 };
 
 // ANSI color codes and formatting
