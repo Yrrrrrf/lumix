@@ -1,143 +1,137 @@
-use windows::Win32::{
-    Graphics::Gdi,
-    Foundation::{LPARAM, BOOL, RECT},
-    Devices::Display::{
-        SetMonitorBrightness, GetPhysicalMonitorsFromHMONITOR,
-        PHYSICAL_MONITOR, GetMonitorBrightness,
-    },
-};
+use clap::{Parser, Subcommand};
+use ddc_hi::{Ddc, Display};
 
-// ANSI color codes and formatting
+// ANSI color codes for pretty printing
 const BOLD: &str = "\x1b[1m";
-const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
 const CYAN: &str = "\x1b[36m";
 const GREEN: &str = "\x1b[32m";
-const YELLOW: &str = "\x1b[33m";
-const BLUE: &str = "\x1b[34m";
 const RED: &str = "\x1b[31m";
+const YELLOW: &str = "\x1b[33m";
+const DIM: &str = "\x1b[2m";
 
-struct MonitorControl {
-    monitors: Vec<(isize, PHYSICAL_MONITOR)>,
+/// A simple, fast tool to control monitor features like brightness via DDC/CI.
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
 }
 
-impl MonitorControl {
-    fn new() -> Self { MonitorControl { monitors: Vec::new() } }
+#[derive(Subcommand, Debug)]
+enum Command {
+    /// Get the brightness of one or all monitors
+    Get {
+        /// The monitor index to target (e.g., 0, 1, 2). If omitted, lists all.
+        monitor: Option<usize>,
+    },
+    /// Set the brightness of one or all monitors
+    Set {
+        /// The brightness level (0-100)
+        #[arg(value_parser = clap::value_parser!(u16).range(0..=100))]
+        brightness: u16,
 
-    fn add_monitor(&mut self, handle: isize, physical_monitor: PHYSICAL_MONITOR) {
-        self.monitors.push((handle, physical_monitor));
-    }
-
-    unsafe fn set_brightness(&self, handle: Option<isize>, brightness: u32) -> Result<(), String> {
-        assert!(brightness <= 100, "Brightness must be between 0 and 100");
-
-        match handle {
-            Some(h) => {
-                if let Some((_, monitor)) = self.monitors.iter().find(|(handle, _)| *handle == h) {
-                    SetMonitorBrightness(monitor.hPhysicalMonitor, brightness);
-                    println!("{GREEN}✓{RESET} Set brightness to {BOLD}{brightness}%{RESET} for monitor M_{h}");
-                    Ok(())
-                } else {Err(format!("{}✗{} Monitor M_{} not found", RED, RESET, h))}
-            }
-            None => {
-                // Set brightness for all monitors
-                for (handle, monitor) in &self.monitors {
-                    SetMonitorBrightness(monitor.hPhysicalMonitor, brightness);
-                    println!("{GREEN}✓{RESET} Set brightness to {BOLD}{brightness}%{RESET} for monitor M_{handle}");
-                }
-                Ok(())
-            }
-        }
-    }
-
-    unsafe fn get_brightness(&self, handle: Option<isize>) {
-        let print_monitor = |(handle, monitor): &(isize, PHYSICAL_MONITOR)| {
-            let mut min = 0;
-            let mut current = 0;
-            let mut max = 0;
-            GetMonitorBrightness(monitor.hPhysicalMonitor, &mut min, &mut current, &mut max);
-            // Create a simple progress bar
-            let bar_width = 20;
-            let filled = (current as f32 / max as f32 * bar_width as f32) as usize;
-            let bar: String = format!("{}{}{}", "█".repeat(filled), DIM, "░".repeat(bar_width - filled));
-            println!("{CYAN}Monitor {handle}{RESET}: {BOLD}{current:>3}%{RESET} {DIM}[{min}..{max:>3}]{RESET} {BLUE}{bar}{RESET}");
-        };
-
-        match handle {
-            Some(h) => {
-                if let Some(monitor) = self.monitors.iter().find(|(handle, _)| *handle == h) {
-                    print_monitor(monitor);
-                } else {println!("{}✗{} Monitor {} not found", RED, RESET, h);}
-            }
-            None => {
-                println!("\n{}Monitor Brightness Status:{}\n", BOLD, RESET);
-                for monitor in &self.monitors {print_monitor(monitor);}
-                println!(); // Add extra newline for spacing
-            }
-        }
-    }
-}
-
-fn print_usage() {
-    println!("\n{}Lumix - Monitor Brightness Control{}\n", BOLD, RESET);
-    println!("{}Commands:{}", YELLOW, RESET);
-    println!("  {}lumix get [monitor_handle]     {}- Get brightness of specific monitor or all monitors", BOLD, RESET);
-    println!("  {}lumix set <brightness>         {}- Set brightness for all monitors", BOLD, RESET);
-    println!("  {}lumix set <monitor_handle> <brightness> {}- Set brightness for specific monitor", BOLD, RESET);
-    println!("\n{}Examples:{}", YELLOW, RESET);
-    println!("  {}$ lumix list", DIM);
-    println!("  $ lumix get");
-    println!("  $ lumix get 12345");
-    println!("  $ lumix set 75");
-    println!("  $ lumix set 12345 50{}", RESET);
-    println!(); // Add extra newline for spacing
+        /// The monitor index to target. If omitted, sets all.
+        monitor: Option<usize>,
+    },
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() < 2 { print_usage(); return; }
+    let cli = Cli::parse();
 
-    let mut monitor_control = MonitorControl::new();
+    match cli.command {
+        Command::Get { monitor } => handle_get(monitor),
+        Command::Set {
+            brightness,
+            monitor,
+        } => handle_set(brightness, monitor),
+    }
+}
 
-    unsafe {
-        unsafe extern "system" fn handle_monitor(
-            param0: Gdi::HMONITOR,
-            _: Gdi::HDC,
-            _: *mut RECT,
-            monitor_control: LPARAM,
-        ) -> BOOL {
-            let control = &mut *(monitor_control.0 as *mut MonitorControl);
-            let mut physical_monitor = [PHYSICAL_MONITOR::default(); 1];
-            _ = GetPhysicalMonitorsFromHMONITOR(param0, &mut physical_monitor);
-            let handle = param0.0 as isize;
-            control.add_monitor(handle, physical_monitor[0]);
-            BOOL(1)
-        }
+/// Handles the 'get' subcommand logic.
+fn handle_get(monitor_index: Option<usize>) {
+    let monitors = find_monitors(monitor_index);
 
-        _ = Gdi::EnumDisplayMonitors(None, None, Some(handle_monitor), LPARAM(&mut monitor_control as *mut _ as isize));
+    if monitors.is_empty() {
+        println!(
+            "{RED}No DDC/CI-enabled monitors found.{RESET}\n{YELLOW}Hint:{RESET} Integrated laptop displays often do not support DDC/CI.",
+        );
+        return;
+    }
 
-        match args[1].as_str() {
-            "get" => monitor_control.get_brightness(args.get(2).and_then(|s| s.parse().ok())),
-            "set" => {
-                match args.len() {
-                    3 => {
-                        if let Ok(brightness) = args[2].parse() {
-                            if let Err(e) = monitor_control.set_brightness(None, brightness) {
-                                println!("{}Error:{} {}", RED, RESET, e);
-                            }
-                        } else {println!("{}Error:{} Invalid brightness value", RED, RESET);}
-                    }
-                    4 => {
-                        if let (Ok(handle), Ok(brightness)) = (args[2].parse(), args[3].parse()) {
-                            if let Err(e) = monitor_control.set_brightness(Some(handle), brightness) {
-                                println!("{}Error:{} {}", RED, RESET, e);
-                            }
-                        } else {println!("{}Error:{} Invalid handle or brightness value", RED, RESET);}
-                    }
-                    _ => print_usage(),
-                }
+    println!("\n{}Monitor Brightness Status:{}\n", BOLD, RESET);
+    for (i, mut display) in monitors {
+        match display.handle.get_vcp_feature(0x10) {
+            Ok(value) => {
+                let bar = create_brightness_bar(value.value(), value.maximum());
+                println!(
+                    "{CYAN}Monitor {i}{RESET}: {BOLD}{:>3}%{RESET} {DIM}[0..{:<3}]{RESET} {}",
+                    value.value(),
+                    value.maximum(),
+                    bar
+                );
             }
-            _ => print_usage(),
+            Err(e) => {
+                // Gracefully handle monitors that are found but don't respond
+                println!(
+                    "{CYAN}Monitor {i}{RESET}: {RED}Error reading brightness: {}{RESET} {DIM}(likely does not support DDC/CI){RESET}",
+                    e
+                );
+            }
         }
     }
+    println!();
+}
+
+/// Handles the 'set' subcommand logic.
+fn handle_set(brightness: u16, monitor_index: Option<usize>) {
+    let monitors = find_monitors(monitor_index);
+
+    if monitors.is_empty() {
+        println!("{RED}No DDC/CI-enabled monitors found to set brightness on.{RESET}",);
+        return;
+    }
+
+    for (i, mut display) in monitors {
+        match display.handle.set_vcp_feature(0x10, brightness) {
+            Ok(_) => {
+                println!(
+                    "{GREEN}✔{RESET} Set brightness to {BOLD}{brightness}%{RESET} for monitor {CYAN}{i}{RESET}"
+                );
+            }
+            Err(e) => {
+                println!(
+                    "{RED}✖{RESET} Error setting brightness for monitor {CYAN}{i}{RESET}: {}",
+                    e
+                );
+            }
+        }
+    }
+}
+
+/// Finds monitors, either all or a specific one by its index.
+/// ddc-hi 0.5+ simplifies this, as enumerate() returns ready-to-use displays.
+fn find_monitors(monitor_index: Option<usize>) -> Vec<(usize, Display)> {
+    Display::enumerate()
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| monitor_index.map_or(true, |index| *i == index))
+        .collect()
+}
+
+/// Creates a visual progress bar string for brightness.
+fn create_brightness_bar(current: u16, max: u16) -> String {
+    let bar_width = 20;
+    let percentage = if max > 0 { current as f32 / max as f32 } else { 0.0 };
+    let filled = (percentage * bar_width as f32).round() as usize;
+    let empty = bar_width - filled;
+    // The corrected format string with five placeholders for five arguments
+    format!(
+        "[{}{}{}{}{}]",
+        GREEN,
+        "█".repeat(filled),
+        DIM,
+        "░".repeat(empty),
+        RESET
+    )
 }

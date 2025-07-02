@@ -1,35 +1,27 @@
 [package]
-name = "lumix"  # Lux Mixer (some monitor brightness control)
-# todo: Add some new contol features to this tool like volume control, etc...
-version = "0.1.1"
+name = "lumix"
+version = "0.2.0" # Bumping version for the major refactor
 edition = "2021"
-description = "A simple tool to control monitor features like brightness, volume, etc..."
+description = "A simple, fast tool to control monitor features like brightness via DDC/CI."
 license = "MIT"
 repository = "https://github.com/Yrrrrrf/lumix"
-keywords = ["brightness", "volume", "control", "monitor", "windows"]
-
-# This is important - it tells cargo this is a binary package
-[[bin]]
-name = "lumix"  # cargo run will run this binary
-path = "src/main.rs"  # The entry point of the binary
+keywords = ["brightness", "ddc", "control", "monitor", "cli"]
 
 [dependencies]
-windows = { version = "0.*", features = [
-    "Win32_Foundation",
-    "Win32_Graphics_Gdi",
-    "Win32_Devices_Display"
-] }
+# Powerful, modern CLI argument parser
+clap = { version = "4.4", features = ["derive"] }
 
+# Safe, cross-platform DDC/CI (monitor control) library
+ddc-hi = "0.4"
+
+# We keep the release profile optimizations, they are excellent!
 [profile.release]
 opt-level = 3
-strip = true  # Automatically strip symbols from the binary
-lto = true    # Enable Link Time Optimization
-codegen-units = 1  # Optimize for size
-panic = "abort"  # Remove panic unwinding to reduce binary size
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
 
 [profile.dev]
-opt-level = 0  # Disable optimizations for faster compilation
-panic = "abort"  # Remove panic unwinding to reduce binary size
-
-# [features]
-# default = []
+opt-level = 0
+panic = "abort"
