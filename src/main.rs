@@ -18,6 +18,28 @@ struct Cli {
     command: Command,
 }
 
+enum ValueChange {
+    Delta(i16),
+    Absolute(u16)
+}
+
+fn parse_change(s: &str) -> ValueChange {
+    let trimmed = s.trim();
+    if trimmed.starts_with('-') {
+        return ValueChange::Delta(trimmed.parse().unwrap())
+    } else if trimmed.starts_with('+') {
+        return ValueChange::Delta(trimmed[1..].parse().unwrap())
+    } else if trimmed.ends_with('-') {
+        let tmp:i16 = trimmed[..s.len() - 1].parse().unwrap();
+        return ValueChange::Delta(-tmp)
+    } else if trimmed.ends_with('+') {
+        return ValueChange::Delta(trimmed[..s.len() - 1].parse().unwrap())
+    } else {
+        return ValueChange::Absolute(trimmed.parse().unwrap())
+    }
+}
+
+
 #[derive(Subcommand, Debug)]
 enum Command {
     /// Get the brightness of one or all monitors
@@ -28,8 +50,7 @@ enum Command {
     /// Set the brightness of one or all monitors
     Set {
         /// The brightness level (0-100)
-        #[arg(value_parser = clap::value_parser!(u16).range(0..=100))]
-        brightness: u16,
+        brightness: String,
 
         /// The monitor index to target. If omitted, sets all.
         monitor: Option<usize>,
@@ -44,7 +65,7 @@ fn main() {
         Command::Set {
             brightness,
             monitor,
-        } => handle_set(brightness, monitor),
+        } => handle_set(parse_change(brightness.as_str()), monitor),
     }
 }
 
@@ -84,8 +105,9 @@ fn handle_get(monitor_index: Option<usize>) {
 }
 
 /// Handles the 'set' subcommand logic.
-fn handle_set(brightness: u16, monitor_index: Option<usize>) {
+fn handle_set(brightness: ValueChange, monitor_index: Option<usize>) {
     let monitors = find_monitors(monitor_index);
+
 
     if monitors.is_empty() {
         println!("{RED}No DDC/CI-enabled monitors found to set brightness on.{RESET}",);
@@ -93,10 +115,27 @@ fn handle_set(brightness: u16, monitor_index: Option<usize>) {
     }
 
     for (i, mut display) in monitors {
-        match display.handle.set_vcp_feature(0x10, brightness) {
+        let value:u16 = match brightness {
+            ValueChange::Delta(delta) => {
+                let current =  {
+                    match display.handle.get_vcp_feature(0x10) {
+                        Ok(info) => info.value(),
+                        Err(e) => {
+                            println!(
+                                "{RED}✖{RESET} Error getting current brightness for monitor {CYAN}{i}{RESET}: {} (skipping)", e);
+                            continue;
+                        }
+                    }
+                };
+                (current as i16 + delta as i16).clamp(0, 100) as u16
+            }
+            ValueChange::Absolute(value) => value,
+        };
+
+        match display.handle.set_vcp_feature(0x10, value) {
             Ok(_) => {
                 println!(
-                    "{GREEN}✔{RESET} Set brightness to {BOLD}{brightness}%{RESET} for monitor {CYAN}{i}{RESET}"
+                    "{GREEN}✔{RESET} Set brightness to {BOLD}{value}%{RESET} for monitor {CYAN}{i}{RESET}"
                 );
             }
             Err(e) => {
