@@ -1,6 +1,6 @@
 [package]
 name = "lumix"
-version = "0.2.0" # Bumping version for the major refactor
+version = "0.2.1"
 edition = "2021"
 description = "A simple, fast tool to control monitor features like brightness via DDC/CI."
 license = "MIT"
@@ -9,10 +9,10 @@ keywords = ["brightness", "ddc", "control", "monitor", "cli"]
 
 [dependencies]
 # Powerful, modern CLI argument parser
-clap = { version = "4.4", features = ["derive"] }
+clap = { version = "4.5.41", features = ["derive"] }
 
 # Safe, cross-platform DDC/CI (monitor control) library
-ddc-hi = "0.4"
+ddc-hi = "0.4.1"
 
 # We keep the release profile optimizations, they are excellent!
 [profile.release]

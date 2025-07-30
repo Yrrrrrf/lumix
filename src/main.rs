@@ -23,20 +23,40 @@ enum ValueChange {
     Absolute(u16)
 }
 
-fn parse_change(s: &str) -> ValueChange {
+fn parse_change(s: &str) -> Result<ValueChange, Box<dyn std::error::Error>> {
     let trimmed = s.trim();
-    if trimmed.starts_with('-') {
-        return ValueChange::Delta(trimmed.parse().unwrap())
-    } else if trimmed.starts_with('+') {
-        return ValueChange::Delta(trimmed[1..].parse().unwrap())
-    } else if trimmed.ends_with('-') {
-        let tmp:i16 = trimmed[..s.len() - 1].parse().unwrap();
-        return ValueChange::Delta(-tmp)
-    } else if trimmed.ends_with('+') {
-        return ValueChange::Delta(trimmed[..s.len() - 1].parse().unwrap())
-    } else {
-        return ValueChange::Absolute(trimmed.parse().unwrap())
+    
+    if trimmed.is_empty() {
+        return Err("Empty input".into());
     }
+    
+    let result = match trimmed {
+        // Starts with '+': positive delta
+        s if s.starts_with('+') && s.len() > 1 => {
+            ValueChange::Delta(s[1..].parse()?)
+        }
+        
+        // Starts with '-': negative delta (parse normally, includes the minus)
+        s if s.starts_with('-') && s.len() > 1 => {
+            ValueChange::Delta(s.parse()?)
+        }
+        
+        // Ends with '+': positive delta
+        s if s.ends_with('+') && s.len() > 1 => {
+            ValueChange::Delta(s[..s.len() - 1].parse()?)
+        }
+        
+        // Ends with '-': negative delta
+        s if s.ends_with('-') && s.len() > 1 => {
+            let value: i16 = s[..s.len() - 1].parse()?;
+            ValueChange::Delta(-value)
+        }
+        
+        // Default: absolute value
+        s => ValueChange::Absolute(s.parse()?),
+    };
+    
+    Ok(result)
 }
 
 
@@ -65,7 +85,7 @@ fn main() {
         Command::Set {
             brightness,
             monitor,
-        } => handle_set(parse_change(brightness.as_str()), monitor),
+        } => handle_set(parse_change(brightness.as_str()).unwrap(), monitor),
     }
 }
 
