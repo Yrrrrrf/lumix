@@ -20,45 +20,38 @@ struct Cli {
 
 enum ValueChange {
     Delta(i16),
-    Absolute(u16)
+    Absolute(u16),
 }
 
 fn parse_change(s: &str) -> Result<ValueChange, Box<dyn std::error::Error>> {
     let trimmed = s.trim();
-    
+
     if trimmed.is_empty() {
         return Err("Empty input".into());
     }
-    
+
     let result = match trimmed {
         // Starts with '+': positive delta
-        s if s.starts_with('+') && s.len() > 1 => {
-            ValueChange::Delta(s[1..].parse()?)
-        }
-        
+        s if s.starts_with('+') && s.len() > 1 => ValueChange::Delta(s[1..].parse()?),
+
         // Starts with '-': negative delta (parse normally, includes the minus)
-        s if s.starts_with('-') && s.len() > 1 => {
-            ValueChange::Delta(s.parse()?)
-        }
-        
+        s if s.starts_with('-') && s.len() > 1 => ValueChange::Delta(s.parse()?),
+
         // Ends with '+': positive delta
-        s if s.ends_with('+') && s.len() > 1 => {
-            ValueChange::Delta(s[..s.len() - 1].parse()?)
-        }
-        
+        s if s.ends_with('+') && s.len() > 1 => ValueChange::Delta(s[..s.len() - 1].parse()?),
+
         // Ends with '-': negative delta
         s if s.ends_with('-') && s.len() > 1 => {
             let value: i16 = s[..s.len() - 1].parse()?;
             ValueChange::Delta(-value)
         }
-        
+
         // Default: absolute value
         s => ValueChange::Absolute(s.parse()?),
     };
-    
+
     Ok(result)
 }
-
 
 #[derive(Subcommand, Debug)]
 enum Command {
@@ -128,16 +121,15 @@ fn handle_get(monitor_index: Option<usize>) {
 fn handle_set(brightness: ValueChange, monitor_index: Option<usize>) {
     let monitors = find_monitors(monitor_index);
 
-
     if monitors.is_empty() {
         println!("{RED}No DDC/CI-enabled monitors found to set brightness on.{RESET}",);
         return;
     }
 
     for (i, mut display) in monitors {
-        let value:u16 = match brightness {
+        let value: u16 = match brightness {
             ValueChange::Delta(delta) => {
-                let current =  {
+                let current = {
                     match display.handle.get_vcp_feature(0x10) {
                         Ok(info) => info.value(),
                         Err(e) => {
@@ -181,7 +173,11 @@ fn find_monitors(monitor_index: Option<usize>) -> Vec<(usize, Display)> {
 /// Creates a visual progress bar string for brightness.
 fn create_brightness_bar(current: u16, max: u16) -> String {
     let bar_width = 20;
-    let percentage = if max > 0 { current as f32 / max as f32 } else { 0.0 };
+    let percentage = if max > 0 {
+        current as f32 / max as f32
+    } else {
+        0.0
+    };
     let filled = (percentage * bar_width as f32).round() as usize;
     let empty = bar_width - filled;
     // The corrected format string with five placeholders for five arguments
