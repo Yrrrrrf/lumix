@@ -68,6 +68,11 @@ enum Command {
         /// The monitor index to target. If omitted, sets all.
         monitor: Option<usize>,
     },
+    /// Alternate the brightness between 0 and 100
+    Altern {
+        /// The monitor index to target. If omitted, sets all.
+        monitor: Option<usize>,
+    },
 }
 
 fn main() {
@@ -79,6 +84,7 @@ fn main() {
             brightness,
             monitor,
         } => handle_set(parse_change(brightness.as_str()).unwrap(), monitor),
+        Command::Altern { monitor } => handle_altern(monitor),
     }
 }
 
@@ -148,6 +154,43 @@ fn handle_set(brightness: ValueChange, monitor_index: Option<usize>) {
             Ok(_) => {
                 println!(
                     "{GREEN}✔{RESET} Set brightness to {BOLD}{value}%{RESET} for monitor {CYAN}{i}{RESET}"
+                );
+            }
+            Err(e) => {
+                println!(
+                    "{RED}✖{RESET} Error setting brightness for monitor {CYAN}{i}{RESET}: {}",
+                    e
+                );
+            }
+        }
+    }
+}
+
+/// Handles the 'altern' subcommand logic.
+fn handle_altern(monitor_index: Option<usize>) {
+    let monitors = find_monitors(monitor_index);
+
+    if monitors.is_empty() {
+        println!("{RED}No DDC/CI-enabled monitors found to set brightness on.{RESET}",);
+        return;
+    }
+
+    for (i, mut display) in monitors {
+        let current = match display.handle.get_vcp_feature(0x10) {
+            Ok(info) => info.value(),
+            Err(e) => {
+                println!(
+                    "{RED}✖{RESET} Error getting current brightness for monitor {CYAN}{i}{RESET}: {} (skipping)", e);
+                continue;
+            }
+        };
+
+        let value: u16 = if current == 0 { 100 } else { 0 };
+
+        match display.handle.set_vcp_feature(0x10, value) {
+            Ok(_) => {
+                println!(
+                    "{GREEN}✔{RESET} Alternated brightness to {BOLD}{value}%{RESET} for monitor {CYAN}{i}{RESET}"
                 );
             }
             Err(e) => {
