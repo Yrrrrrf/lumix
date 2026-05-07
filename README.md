@@ -1,6 +1,7 @@
 # lumix
 
-A simple, fast command-line tool for controlling monitor brightness on Windows and Linux. Designed for easy brightness management across multiple displays.
+A simple, fast command-line tool for controlling monitor brightness on Windows
+and Linux. Designed for easy brightness management across multiple displays.
 
 [![GitHub](https://img.shields.io/badge/github-Yrrrrrf%2Flumix-58A6FF?style=for-the-badge&logo=github)](https://github.com/Yrrrrrf/lumix)
 [![Crates.io](https://img.shields.io/crates/v/lumix.svg?style=for-the-badge&logo=rust)](https://crates.io/crates/lumix)
@@ -20,17 +21,26 @@ A simple, fast command-line tool for controlling monitor brightness on Windows a
 ### Basic Commands
 
 - Get brightness:
+
 ```bash
 lumix get  # List all monitors and their brightness
 lumix get 12345  # Specific monitor brightness
 ```
 
 - Set brightness:
+
 ```bash
 lumix set 75  # All monitors to 75%
 lumix set 10+  # Increase all monitors by 10%
 lumix set 5-  # Decrease all monitors by 5%
 lumix set 12345 50  # Specific monitor to 50%
+```
+
+- Alternate brightness:
+
+```bash
+lumix altern  # Toggle all monitors between 0% and 100%
+lumix altern 12345  # Toggle specific monitor
 ```
 
 ### Output Example
@@ -40,6 +50,7 @@ Monitor 12345: 75% [0..=100] ██████████░░░░░░░
 ```
 
 Where:
+
 - `12345`: Monitor identifier
 - `75%`: Current brightness (bold)
 - `██████████░░░░░░░░░░`: Visual brightness indicator
